@@ -1,0 +1,34 @@
+https://admin-backend-qyxy.onrender.com/api/categories - to fetch all categories
+https://admin-backend-qyxy.onrender.com/api/categories/category - post method for sending categories
+https://admin-backend-qyxy.onrender.com/api/news - for fetching all news
+https://admin-backend-qyxy.onrender.com/api/news/createnews - post method for sending news in categories
+https://admin-backend-qyxy.onrender.com/api/categories/category/${id} - method to delete , edit categories
+],
+[
+    // for edit post 
+    https://admin-backend-qyxy.onrender.com/api/news/editnews/:id
+    Header : {
+        Content-Type: multipart/form-data
+    }
+],
+[
+    // for delete post 
+    https://admin-backend-qyxy.onrender.com/api/news/deletenews/:id
+],
+
+//auth credentials
+[
+    {
+       for login user : https://admin-backend-qyxy.onrender.com/api/auth
+    },
+    {
+        for register user : https://admin-backend-qyxy.onrender.com/api/auth/signup
+    }
+]
+
+//edit delete get post banner 
+[
+    {
+       api :  https://admin-backend-qyxy.onrender.com/api/banner/:id
+    }
+]
