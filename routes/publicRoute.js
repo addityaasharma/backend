@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/',async (req,res)=>{
     try{
-        const news = await News.find();
+        const news = await News.find().populate('category','name');
         if(!news){
             res.status(404).json({message : 'No news found'})
         }

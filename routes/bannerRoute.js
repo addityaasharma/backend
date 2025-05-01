@@ -32,7 +32,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     }
 
     const { link, userId } = req.body;
-    const file = req.file?.path;
+    const file = req.file;
 
     const banners = await Banner.create({
       image: file.path,
@@ -77,9 +77,11 @@ router.get("/", async (req, res) => {
   }
 });
 
-
 router.put("/:_id", upload.single("image"), async (req, res) => {
   try {
+    const user = await userAuth.findById(req.user.userID);
+    const panelDataID = user.PanelData;
+
     const { _id } = req.params;
     const link = req.body.link?.trim();
     const file = req.file;
@@ -91,11 +93,11 @@ router.put("/:_id", upload.single("image"), async (req, res) => {
 
     if (file) {
       if (existBanner.public_id) {
-        await cloudinary.uploader.destroy(existBanner.public_id);
+        await cloudinary.uploader.destroy(existBanner.public_id); // Delete old image
       }
 
-      existBanner.image = file.path;
-      existBanner.public_id = file.filename;
+      existBanner.image = file.path;      // Cloudinary URL
+      existBanner.public_id = file.filename;  // public_id used for deletion
     }
 
     if (link) {
@@ -103,12 +105,25 @@ router.put("/:_id", upload.single("image"), async (req, res) => {
     }
 
     await existBanner.save();
-    return res.status(200).json({ message: "Banner updated successfully", banner: existBanner });
+
+    // Optional: Only push if not already present
+    await PanelData.findByIdAndUpdate(panelDataID, {
+      $addToSet: { banners: existBanner._id }
+    });
+
+    return res.status(200).json({
+      message: "Banner updated successfully",
+      banner: existBanner
+    });
   } catch (error) {
     console.error("PUT /banner/:_id error:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message
+    });
   }
 });
+
 
 
 router.delete("/:id", async (req, res) => {

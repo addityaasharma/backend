@@ -3,6 +3,9 @@ import { Logo } from "../models/logoModel.js";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary.js";
+import { userAuth } from "../models/userModel.js";
+import { PanelData } from "../models/PanelDataModel.js";
+import path from 'path'
 
 const router = express.Router();
 
@@ -14,11 +17,28 @@ const storage = new CloudinaryStorage({
     transformation: [{ width: 500, height: 500, crop: "limit" }],
   },
 });
+           //////
+          //////\\
+         //////\\\\
+        //////\\\\\\
+       //////\\\\\\\\
+      ///////\\\\\\\\\
+     ////////\\\\\\\\\\
+    /////////\\\\\\\\\\\
+   //////////\\\\\\\\\\\\
+  ///////////\\\\\\\\\\\\\
 
 const upload = multer({ storage });
 
 router.post("/", upload.single("logo"), async (req, res) => {
   try {
+    const user = await userAuth.findById(req.user.userID);
+    const panelDataId = user.PanelData;
+
+    if (!panelDataId) {
+      return res.status(404).json({ message: "Panel Data not found" });
+    }
+
     const image = req.file?.path;
 
     if (!image) {
@@ -32,8 +52,10 @@ router.post("/", upload.single("logo"), async (req, res) => {
         .json({ message: "Logo already exists. Use PUT to update." });
     }
 
-    const newLogo = new Logo({ image });
-    await newLogo.save();
+    const newLogo = Logo.create({ image });
+    await PanelData.findByIdAndUpdate(panelDataId,{
+      $push : { logo : await newLogo._id}
+    })   
 
     return res
       .status(201)
@@ -46,6 +68,17 @@ router.post("/", upload.single("logo"), async (req, res) => {
 
 router.put("/", upload.single("logo"), async (req, res) => {
   try {
+    if (!req.user || !req.user.userID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await userAuth.findById(req.user.userID);
+    const panelDataId = user.PanelData;
+
+    if (!panelDataId) {
+      return res.status(404).json({ message: "Panel Data not found" });
+    }
+
     const image = req.file?.path;
 
     if (!image) {
@@ -55,21 +88,36 @@ router.put("/", upload.single("logo"), async (req, res) => {
     let logo = await Logo.findOne();
 
     if (logo) {
-      const publicId = logo.image.split("/").pop().split(".")[0];
+      // Extract public ID and delete the old image from Cloudinary
+      const publicId = path.basename(logo.image, path.extname(logo.image));
       await cloudinary.uploader.destroy(`logo/${publicId}`);
 
+      // Update logo document with new image
       logo.image = image;
       await logo.save();
 
-      return res
-        .status(200)
-        .json({ message: "Logo updated successfully", image: logo.image });
+      // Add logo reference to PanelData if not already added
+      await PanelData.findByIdAndUpdate(panelDataId, {
+        $addToSet: { logo: logo._id },
+      });
+
+      return res.status(200).json({
+        message: "Logo updated successfully",
+        image: logo.image,
+      });
     } else {
+      // Create new logo and link to PanelData
       const newLogo = new Logo({ image });
       await newLogo.save();
-      return res
-        .status(201)
-        .json({ message: "Logo created successfully", image: newLogo.image });
+
+      await PanelData.findByIdAndUpdate(panelDataId, {
+        $addToSet: { logo: newLogo._id },
+      });
+
+      return res.status(201).json({
+        message: "Logo created successfully",
+        image: newLogo.image,
+      });
     }
   } catch (error) {
     console.error("Error updating/creating logo:", error);
@@ -77,18 +125,36 @@ router.put("/", upload.single("logo"), async (req, res) => {
   }
 });
 
+
 router.get("/", async (req, res) => {
   try {
-    const logo = await Logo.findOne();
-    if (logo) {
-      return res.status(200).json({ image: logo.image });
-    } else {
+    const user = await userAuth.findById(req.user.userID).populate({
+      path: "PanelData",
+      populate: { path: "logo" },
+    });
+
+    if (!user || !user.PanelData || !user.PanelData.logo) {
       return res.status(404).json({ message: "Logo not found" });
     }
+
+    const logo = user.PanelData.logo;
+    const logoData = Array.isArray(logo) && logo.length > 0
+      ? logo[logo.length - 1]
+      : !Array.isArray(logo)
+        ? logo
+        : null;
+
+    if (!logoData || !logoData.image) {
+      return res.status(404).json({ message: "Logo image not found" });
+    }
+
+    return res.status(200).json({ image: logoData.image });
   } catch (error) {
     console.error("Error fetching logo:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 
 export default router;

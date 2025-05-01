@@ -74,7 +74,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       title,
       content,
       image: imageUrl,
-      category: existCategory._id.name,
+      category: existCategory._id,
     });
 
     await PanelData.findByIdAndUpdate(panelDataId, {

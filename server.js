@@ -1,3 +1,4 @@
+import os from "os";
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -7,10 +8,10 @@ import newsRoute from "./routes/newsRoutes.js";
 import authRoute from "./routes/authRoute.js";
 import logoRoute from "./routes/logoRoute.js";
 import bannerRoute from "./routes/bannerRoute.js";
-import os from "os";
 import authMiddleware from "./middleWare.js";
 import publicRoute from './routes/publicRoute.js'
 import bannerRoutes from './routes/bannerPublicRoute.js'
+import publicLogoRoute from './routes/publicLogoRoute.js'
 import categoryRoutes from './routes/categoryPublicRoute.js'
 import categoryPublicRoute from "./routes/categoryPublicRoute.js";
 
@@ -22,7 +23,6 @@ app.use("/uploads", express.static("uploads"));
 app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
 app.use("/api/categories", authMiddleware, categoryRoute);
 app.use("/api/news", authMiddleware, newsRoute);
 app.use("/api/auth", authRoute);
@@ -33,6 +33,7 @@ app.use("/api/banner", authMiddleware, bannerRoute);
 app.use('/newsroutes',publicRoute);
 app.use('/bannerroutes',bannerRoutes);
 app.use('/categoryroutes',categoryPublicRoute);
+app.use('/logoroutes',publicLogoRoute)
 
 mongoose
   .connect(process.env.MONGO_URI)

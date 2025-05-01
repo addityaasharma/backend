@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 const bannerSchema = new mongoose.Schema({
-  image: { type: String, },
+  image: { type: String },
   public_id : String,
   link : String,
   banner: { type: String,},
