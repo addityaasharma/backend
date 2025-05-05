@@ -102,6 +102,7 @@ router.put("/category/:_id", upload.single("image"), async (req, res) => {
 });
 
 
+
 router.delete("/category/:id", async (req, res) => {
   const { id } = req.params;
 
