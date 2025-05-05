@@ -19,6 +19,8 @@ const storage = new CloudinaryStorage({
   },
 });
 
+// const storage  = new CloudinaryStorage
+
 const upload = multer({ storage });
 
 router.post("/", upload.single("image"), async (req, res) => {
@@ -30,7 +32,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       return res.status(404).json({ message: "Panel Data not found" });
     }
 
-    const { name } = req.body;
+    const { name } = req.body; 
     const image = req.file?.path;
 
     if (!name) {
@@ -68,7 +70,11 @@ router.put("/category/:_id", upload.single("image"), async (req, res) => {
       return res.status(404).json({ message: "Category not found" });
 
     const panelData = await PanelData.findById(user.PanelData);
-    if (!panelData || !panelData.categories.includes(_id)) {
+    if (!panelData)
+      return res.status(403).json({ message: "Panel not found" });
+
+    // Make sure user has access before allowing update
+    if (!panelData.categories.includes(_id)) {
       return res.status(403).json({
         message: "You do not have permission to update this category",
       });
@@ -78,9 +84,10 @@ router.put("/category/:_id", upload.single("image"), async (req, res) => {
     category.image = image || category.image;
     await category.save();
 
-    await PanelData.findByIdAndUpdate(panelData, {
-      $push: { categories: category },
-    })
+    // Safely ensure category stays in panelData without duplication
+    await PanelData.findByIdAndUpdate(panelData._id, {
+      $addToSet: { categories: category._id },
+    });
 
     res.status(200).json({
       message: "Category updated successfully",

@@ -8,6 +8,7 @@ import streamifier from "streamifier";
 import { userAuth } from "../models/userModel.js";
 import { PanelData } from "../models/PanelDataModel.js";
 import { populate } from "dotenv";
+import slugify from "slugify";
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -40,11 +41,13 @@ router.post("/", upload.single("image"), async (req, res) => {
       return res.status(404).json({ message: "Panel Data not found" });
     }
 
-    const { title, content, category } = req.body;
+    const { title, content, category, } = req.body;
+    const author = req.user.userID;
     const imageFile = req.file?.buffer;
 
-    if (!title || !content || !category) {
-      return res.status(400).json({ message: "All fields are required." });
+    // Validate required fields
+    if (!title || !content || !category || !author) {
+      return res.status(400).json({ message: "Title, content, category, and author are required." });
     }
 
     const existCategory = await Category.findOne({ name: category });
@@ -61,27 +64,38 @@ router.post("/", upload.single("image"), async (req, res) => {
     if (!isCategoryInPanel) {
       return res
         .status(403)
-        .json({ message: "Category exists but not in your panel." });
+        .json({ message: "Category exists but is not part of your panel." });
     }
 
     let imageUrl = null;
     if (imageFile) {
       const result = await streamUpload(imageFile);
-      imageUrl = result.secure_url;
+      imageUrl = result.secure_url; // Get the URL of the uploaded image
     }
 
+    // Generate a unique slug for the news article based on the title
+    const link = slugify(title, { lower: true, strict: true });
+
+    // Create the news article
     const news = await News.create({
       title,
       content,
+      author,
       image: imageUrl,
       category: existCategory._id,
+      link,  // Save the generated link (URL) for easy access
     });
 
+    // Add the news article to the user's PanelData
     await PanelData.findByIdAndUpdate(panelDataId, {
       $push: { news: news._id },
     });
 
-    res.status(201).json({ message: "News article posted successfully", news });
+    // Respond with the newly created news article
+    res.status(201).json({
+      message: "News article posted successfully",
+      news: { ...news.toObject(), link },  // Include the generated link in the response
+    });
   } catch (err) {
     console.error("Error creating news article:", err);
     res.status(500).json({
@@ -94,7 +108,7 @@ router.post("/", upload.single("image"), async (req, res) => {
 router.put("/editnews/:id", upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, category } = req.body;
+    const { title, content, category, author } = req.body;
     const imageFile = req.file?.buffer;
 
     if (!id || id === "undefined") {
@@ -138,6 +152,11 @@ router.put("/editnews/:id", upload.single("image"), async (req, res) => {
 
     if (title) news.title = title;
     if (content) news.content = content;
+    // if (author) news.author = author;
+    if (author && mongoose.Types.ObjectId.isValid(author)) {
+      news.author = new mongoose.Types.ObjectId(author);
+    }
+    
 
     if (imageFile) {
       const result = await streamUpload(imageFile);
@@ -214,17 +233,28 @@ router.get("/", async (req, res) => {
       path: "PanelData",
       populate: {
         path: "news",
-        populate: { path: "category", select: "name" }
-      }
+        populate: [
+          { path: "category", select: "name" },  // Populate the category name
+          { path: "author" },  // Populate author (if needed)
+        ],
+      },
     });
 
     if (!user || !user.PanelData) {
       return res.status(404).json({ message: "No news articles found." });
     }
 
+    // Extract the news articles
+    const newsArticles = user.PanelData.news || [];
+
+    // Check if there are any news articles in the user's panel data
+    if (newsArticles.length === 0) {
+      return res.status(404).json({ message: "No news articles in your panel." });
+    }
+
     res.status(200).json({
       message: "News articles fetched successfully",
-      newsArticles: user.PanelData.news, // ✅ lowercase "news"
+      newsArticles,  // ✅ All populated fields included here
     });
   } catch (err) {
     console.error("Error fetching news articles:", err);
@@ -234,5 +264,6 @@ router.get("/", async (req, res) => {
     });
   }
 });
+
 
 export default router;

@@ -8,7 +8,6 @@ import { PanelData } from "../models/PanelDataModel.js";
 
 const router = express.Router();
 
-
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -54,7 +53,6 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
-
 router.get("/", async (req, res) => {
   try {
     const user = await userAuth.findById(req.user.userID).populate({
@@ -63,19 +61,25 @@ router.get("/", async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ message: "No banners found" });
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.PanelData) {
+      return res.status(404).json({ message: "Panel data not found" });
     }
 
     const userBanner = user.PanelData.banners || [];
+
     return res.status(200).json({
       message: "User banners fetched",
       info: userBanner,
     });
   } catch (error) {
-    console.error("GET /banner/:userId error:", error);
+    console.error("GET /banner error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 router.put("/:_id", upload.single("image"), async (req, res) => {
   try {
@@ -123,8 +127,6 @@ router.put("/:_id", upload.single("image"), async (req, res) => {
     });
   }
 });
-
-
 
 router.delete("/:id", async (req, res) => {
   try {
