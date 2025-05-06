@@ -107,22 +107,23 @@ const streamUpload = (buffer) => {
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const { title, content, category } = req.body;
-    const author = req.user.userID;
+    const userID = req.user?.userID;
     const imageFile = req.file?.buffer;
 
-    if (!title || !content || !category || !author) {
+    if (!title || !content || !category || !userID) {
       return res.status(400).json({ message: "Title, content, category, and author are required." });
     }
 
-    const [user, existCategory, panelData] = await Promise.all([
-      userAuth.findById(req.user.userID),
+    const user = await userAuth.findById(userID);
+
+    if (!user || !user.PanelData) {
+      return res.status(404).json({ message: "User or Panel Data not found" });
+    }
+
+    const [existCategory, panelData] = await Promise.all([
       Category.findOne({ name: category }),
       PanelData.findById(user.PanelData),
     ]);
-
-    if (!panelData) {
-      return res.status(404).json({ message: "Panel Data not found" });
-    }
 
     if (!existCategory) {
       return res.status(404).json({ message: "Category not found." });
@@ -152,7 +153,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     const news = await News.create({
       title,
       content,
-      author,
+      author: userID,
       image: imageUrl,
       category: existCategory._id,
       link,
@@ -171,6 +172,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     res.status(500).json({ message: "Failed to create article", error: err.message });
   }
 });
+
 
 
 
