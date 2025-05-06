@@ -106,13 +106,6 @@ const streamUpload = (buffer) => {
 // });
 router.post("/", upload.single("image"), async (req, res) => {
   try {
-    const user = await userAuth.findById(req.user.userID);
-    const panelDataId = user.PanelData;
-
-    if (!panelDataId) {
-      return res.status(404).json({ message: "Panel Data not found" });
-    }
-
     const { title, content, category } = req.body;
     const author = req.user.userID;
     const imageFile = req.file?.buffer;
@@ -121,12 +114,20 @@ router.post("/", upload.single("image"), async (req, res) => {
       return res.status(400).json({ message: "Title, content, category, and author are required." });
     }
 
-    const existCategory = await Category.findOne({ name: category });
+    const [user, existCategory, panelData] = await Promise.all([
+      userAuth.findById(req.user.userID),
+      Category.findOne({ name: category }),
+      PanelData.findById(user.PanelData),
+    ]);
+
+    if (!panelData) {
+      return res.status(404).json({ message: "Panel Data not found" });
+    }
+
     if (!existCategory) {
       return res.status(404).json({ message: "Category not found." });
     }
 
-    const panelData = await PanelData.findById(panelDataId);
     const isCategoryInPanel = panelData.categories.some((catId) =>
       catId.equals(existCategory._id)
     );
@@ -141,14 +142,11 @@ router.post("/", upload.single("image"), async (req, res) => {
       imageUrl = result.secure_url;
     }
 
-    // Generate slug from title
     let link = slugify(title, { lower: true, strict: true });
 
-    // Ensure link is unique by appending a timestamp if already exists
-    let existingNews = await News.findOne({ link });
+    const existingNews = await News.findOne({ link });
     if (existingNews) {
-      const timestamp = Date.now();
-      link = `${link}-${timestamp}`;
+      link = `${link}-${Date.now()}`;
     }
 
     const news = await News.create({
@@ -160,7 +158,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       link,
     });
 
-    await PanelData.findByIdAndUpdate(panelDataId, {
+    await PanelData.findByIdAndUpdate(user.PanelData, {
       $push: { news: news._id },
     });
 
@@ -170,12 +168,10 @@ router.post("/", upload.single("image"), async (req, res) => {
     });
   } catch (err) {
     console.error("Error creating news article:", err);
-    res.status(500).json({
-      message: "Failed to create news article",
-      error: err.message,
-    });
+    res.status(500).json({ message: "Failed to create news article", error: err.message });
   }
 });
+
 
 
 
