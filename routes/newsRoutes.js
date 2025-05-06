@@ -168,7 +168,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     });
   } catch (err) {
     console.error("Error creating news article:", err);
-    res.status(500).json({ message: "Failed to create news article", error: err.message });
+    res.status(500).json({ message: "Failed to create article", error: err.message });
   }
 });
 
