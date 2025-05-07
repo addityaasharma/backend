@@ -32,150 +32,147 @@ const streamUpload = (buffer) => {
   });
 };
 
-// router.post("/", upload.single("image"), async (req, res) => {
-//   try {
-//     const user = await userAuth.findById(req.user.userID);
-//     const panelDataId = user.PanelData;
-
-//     if (!panelDataId) {
-//       return res.status(404).json({ message: "Panel Data not found" });
-//     }
-
-//     const { title, content, category, } = req.body;
-//     const author = req.user.userID;
-//     const imageFile = req.file?.buffer;
-
-//     // Validate required fields
-//     if (!title || !content || !category || !author) {
-//       return res.status(400).json({ message: "Title, content, category, and author are required." });
-//     }
-
-//     const existCategory = await Category.findOne({ name: category });
-//     if (!existCategory) {
-//       return res.status(404).json({ message: "Category not found." });
-//     }
-
-//     const panelData = await PanelData.findById(panelDataId);
-
-//     const isCategoryInPanel = panelData.categories.some((catId) =>
-//       catId.equals(existCategory._id)
-//     );
-
-//     if (!isCategoryInPanel) {
-//       return res
-//         .status(403)
-//         .json({ message: "Category exists but is not part of your panel." });
-//     }
-
-//     let imageUrl = null;
-//     if (imageFile) {
-//       const result = await streamUpload(imageFile);
-//       imageUrl = result.secure_url; // Get the URL of the uploaded image
-//     }
-
-//     // Generate a unique slug for the news article based on the title
-//     const link = slugify(title, { lower: true, strict: true });
-
-//     // Create the news article
-//     const news = await News.create({
-//       title,
-//       content,
-//       author,
-//       image: imageUrl,
-//       category: existCategory._id,
-//       link,  // Save the generated link (URL) for easy access
-//     });
-
-//     // Add the news article to the user's PanelData
-//     await PanelData.findByIdAndUpdate(panelDataId, {
-//       $push: { news: news._id },
-//     });
-
-//     // Respond with the newly created news article
-//     res.status(201).json({
-//       message: "News article posted successfully",
-//       news: { ...news.toObject(), link },  // Include the generated link in the response
-//     });
-//   } catch (err) {
-//     console.error("Error creating news article:", err);
-//     res.status(500).json({
-//       message: "Failed to create news article",
-//       error: err.message,
-//     });
-//   }
-// });
 router.post("/", upload.single("image"), async (req, res) => {
   try {
-    const { title, content, category } = req.body;
-    const userID = req.user?.userID;
+    const user = await userAuth.findById(req.user.userID);
+    const panelDataId = user.PanelData;
+
+    if (!panelDataId) {
+      return res.status(404).json({ message: "Panel Data not found" });
+    }
+
+    const { title, content, category, } = req.body;
+    const author = req.user.userID;
     const imageFile = req.file?.buffer;
 
-    if (!title || !content || !category || !userID) {
+    // Validate required fields
+    if (!title || !content || !category || !author) {
       return res.status(400).json({ message: "Title, content, category, and author are required." });
     }
 
-    const user = await userAuth.findById(userID);
-
-    if (!user || !user.PanelData) {
-      return res.status(404).json({ message: "User or Panel Data not found" });
-    }
-
-    const [existCategory, panelData] = await Promise.all([
-      Category.findOne({ name: category }),
-      PanelData.findById(user.PanelData),
-    ]);
-
+    const existCategory = await Category.findOne({ name: category });
     if (!existCategory) {
       return res.status(404).json({ message: "Category not found." });
     }
+
+    const panelData = await PanelData.findById(panelDataId);
 
     const isCategoryInPanel = panelData.categories.some((catId) =>
       catId.equals(existCategory._id)
     );
 
     if (!isCategoryInPanel) {
-      return res.status(403).json({ message: "Category exists but is not part of your panel." });
+      return res
+        .status(403)
+        .json({ message: "Category exists but is not part of your panel." });
     }
 
     let imageUrl = null;
     if (imageFile) {
       const result = await streamUpload(imageFile);
-      imageUrl = result.secure_url;
+      imageUrl = result.secure_url; // Get the URL of the uploaded image
     }
 
-    let link = slugify(title, { lower: true, strict: true });
+    // Generate a unique slug for the news article based on the title
+    const link = slugify(title, { lower: true, strict: true });
 
-    const existingNews = await News.findOne({ link });
-    if (existingNews) {
-      link = `${link}-${Date.now()}`;
-    }
-
+    // Create the news article
     const news = await News.create({
       title,
       content,
-      author: userID,
+      author,
       image: imageUrl,
       category: existCategory._id,
-      link,
+      link,  // Save the generated link (URL) for easy access
     });
 
-    await PanelData.findByIdAndUpdate(user.PanelData, {
+    // Add the news article to the user's PanelData
+    await PanelData.findByIdAndUpdate(panelDataId, {
       $push: { news: news._id },
     });
 
+    // Respond with the newly created news article
     res.status(201).json({
       message: "News article posted successfully",
-      news: { ...news.toObject(), link },
+      news: { ...news.toObject(), link },  // Include the generated link in the response
     });
   } catch (err) {
     console.error("Error creating news article:", err);
-    res.status(500).json({ message: "Failed to create article", error: err.message });
+    res.status(500).json({
+      message: "Failed to create news article",
+      error: err.message,
+    });
   }
 });
 
+// router.post("/", upload.single("image"), async (req, res) => {
+//   try {
+//     const { title, content, category } = req.body;
+//     const userID = req.user?.userID;
+//     const imageFile = req.file?.buffer;
 
+//     if (!title || !content || !category || !userID) {
+//       return res.status(400).json({ message: "Title, content, category, and author are required." });
+//     }
 
+//     const user = await userAuth.findById(userID);
 
+//     if (!user || !user.PanelData) {
+//       return res.status(404).json({ message: "User or Panel Data not found" });
+//     }
+
+//     const [existCategory, panelData] = await Promise.all([
+//       Category.findOne({ name: category }),
+//       PanelData.findById(user.PanelData),
+//     ]);
+
+//     if (!existCategory) {
+//       return res.status(404).json({ message: "Category not found." });
+//     }
+
+//     const isCategoryInPanel = panelData.categories.some((catId) =>
+//       catId.equals(existCategory._id)
+//     );
+
+//     if (!isCategoryInPanel) {
+//       return res.status(403).json({ message: "Category exists but is not part of your panel." });
+//     }
+
+//     let imageUrl = null;
+//     if (imageFile) {
+//       const result = await streamUpload(imageFile);
+//       imageUrl = result.secure_url;
+//     }
+
+//     let link = slugify(title, { lower: true, strict: true });
+
+//     const existingNews = await News.findOne({ link });
+//     if (existingNews) {
+//       link = `${link}-${Date.now()}`;
+//     }
+
+//     const news = await News.create({
+//       title,
+//       content,
+//       author: userID,
+//       image: imageUrl,
+//       category: existCategory._id,
+//       link,
+//     });
+
+//     await PanelData.findByIdAndUpdate(user.PanelData, {
+//       $push: { news: news._id },
+//     });
+
+//     res.status(201).json({
+//       message: "News article posted successfully",
+//       news: { ...news.toObject(), link },
+//     });
+//   } catch (err) {
+//     console.error("Error creating news article:", err);
+//     res.status(500).json({ message: "Failed to create article", error: err.message });
+//   }
+// });
 
 router.put("/editnews/:id", upload.single("image"), async (req, res) => {
   try {
